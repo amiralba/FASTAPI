@@ -7,7 +7,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 from sqlalchemy.orm import Session
-from . import models
+from . import models, schemas
 from .database import engine, get_db
 
 
@@ -16,10 +16,7 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
+
 
 while True:    
     try:
@@ -52,27 +49,31 @@ def root():
     return {"message": "Hello World"}
 
 
-@app.get("/sqlalchemy")
-def test_posts(db: Session = Depends(get_db)):
-    return {"status": "success"}
-
-
-
 
 
 @app.get("/posts")
-def get_posts():
-    cursor.execute("""SELECT * FROM posts""")
-    posts = cursor.fetchall()
+def get_posts(db: Session = Depends(get_db)):
+    # cursor.execute("""SELECT * FROM posts""")
+    # posts = cursor.fetchall()
+    
+    posts = db.query(models.Post).all()
     return {"data": posts}
 
 
 @app.post("/posts", status_code=status.HTTP_201_CREATED) #status_code age nazarim code 200 mide behemon defualteshe vase hamin 201 besh midim ke vase create kardane
-def create_posts(post: Post):
-    cursor.execute("""INSERT INTO posts (title, content, published) VALUES(%s, %s, %s) RETURNING * """,(post.title, post.content, post.published)) #order matters, # %s shabih ye place holdere ke vase inke sql injection nakhorim miaim ino mizrim va badesh joda vraible hamono midim besh
-    new_post = cursor.fetchone()
-    conn.commit()  #age ino nazarim toye api doros neshon mide ama post toye db save nemishe
+def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
+    # cursor.execute("""INSERT INTO posts (title, content, published) VALUES(%s, %s, %s) RETURNING * """,(post.title, post.content, post.published)) #order matters, # %s shabih ye place holdere ke vase inke sql injection nakhorim miaim ino mizrim va badesh joda vraible hamono midim besh
+    # new_post = cursor.fetchone()
+    # conn.commit()  #age ino nazarim toye api doros neshon mide ama post toye db save nemishe
+
+    # new_post = models.Post(title=post.title, content=post.content, published=post.published) kheili tolanie az raveshe zir estefade mikonim
+   
+    new_post = models.Post(**post.model_dump()) #**post.model_dump() unpack mikone tile va content va baghie chizaro niaz nis tak tak benevisim age badanam ezafe konim khodesh ok mikone
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
     return {"data": new_post}
+
 
 
 @app.get("/posts/latest")
@@ -84,10 +85,14 @@ def get_latest_post():
 #path latesto mizare jaye {id} bad nmitone be int tabdil kone error mide pas tartib moheme kheeili
 
 @app.get("/posts/{id}")
-def get_post(id: int):  #hatman byd id: int bezarim ke id o be int tabdil kone ke def find_post doros kar kone
-    cursor.execute("""SELECT * FROM posts WHERE id = %s""", (str(id)))
-    post = cursor.fetchone()
+def get_post(id: int, db: Session = Depends(get_db)):  #hatman byd id: int bezarim ke id o be int tabdil kone ke def find_post doros kar kone
+    # cursor.execute("""SELECT * FROM posts WHERE id = %s""", (str(id)))
+    # post = cursor.fetchone()
+    # print(post)
+
+    post = db.query(models.Post).filter(models.Post.id == id).first() #age .all() bzrim hata age peyda kone bzm donbalesh migarde ama id fght 1 done drim pas first mizrim ke be avalin id moshabeh resid dg nagarde
     print(post)
+
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
     
@@ -98,24 +103,34 @@ def get_post(id: int):  #hatman byd id: int bezarim ke id o be int tabdil kone k
 
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_posts(id: int):
-    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *""", (str(id),))
-    deleted_post = cursor.fetchone()
-    conn.commit()
+def delete_posts(id: int, db: Session = Depends(get_db)):
+    # cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *""", (str(id),))
+    # deleted_post = cursor.fetchone()
+    # conn.commit()
 
-    if deleted_post == None: #ino mizarim ke age id besh bedim ke mojod nabashe betone ye javabi bede va error nade
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id:{id} was not found")
-    return Response(status_code=status.HTTP_204_NO_CONTENT) #vaghti 204 estefade mikoni hich returni behet nmide server vase hamin inja message benevisi neshon nemide pas miai respons mizari ke error nade
+    post = db.query(models.Post).filter(models.Post.id == id)
 
-
-@app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-
-    cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""", (post.title, post.content, post.published, str(id)))
-    updated_post = cursor.fetchone()
-    conn.commit()
-
-    if updated_post == None:
+    if post.first() == None: #ino mizarim ke age id besh bedim ke mojod nabashe betone ye javabi bede va error nade
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id:{id} was not found")
     
-    return {"data": updated_post}
+    post.delete(synchronize_session=False)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@app.put("/posts/{id}")
+def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
+
+    # cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""", (post.title, post.content, post.published, str(id)))
+    # updated_post = cursor.fetchone()
+    # conn.commit()
+
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
+
+    if post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id:{id} was not found")
+    
+
+    post_query.update(post.model_dump(), synchronize_session=False)
+    db.commit()
+    return {"data": post_query.first()}
