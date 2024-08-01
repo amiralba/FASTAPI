@@ -46,6 +46,12 @@ class Post(PostBase):  #toye khode PostBase 3 ta iteme title content va publishe
         'from_attributes': True
     }
 
+class PostOut(BaseModel):
+    Post: Post
+    votes: int
+    model_config = {
+        'from_attributes': True
+    }
 
 
 

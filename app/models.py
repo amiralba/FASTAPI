@@ -14,7 +14,6 @@ class Post(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     owner = relationship("User")  #classe User return mikone
-#vaghti owner_id ya harchi dgaro ezafe mikonim aval az pgadmin delete mikonim table bad inja save mikonim ke ezafe she.
 
 class User(Base):
     __tablename__ = "users"
@@ -22,6 +21,7 @@ class User(Base):
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+    phone_number = Column(String, nullable=False, unique=True)
 
 class Vote(Base):
     __tablename__ = "votes"

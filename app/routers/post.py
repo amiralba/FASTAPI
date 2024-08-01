@@ -3,6 +3,7 @@ from .. import models, schemas, oauth2
 from ..database import get_db
 from fastapi import FastAPI, Response, status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 router = APIRouter(
     prefix="/posts",   #be jaye inke too hame /post benevisim inja fixesh mikonim age +{id} bashe "/{id}" kafie
@@ -12,11 +13,14 @@ router = APIRouter(
 
 #limit va skip toye api call miznim, {{URL}}posts?limit=2&skip=2&search=hello%20world
 #vase search &search ham ezafe mishe be balayi,,, %20 yani space
-@router.get("/", response_model=List[schemas.Post])
+
+@router.get("/", response_model=List[schemas.PostOut])
 def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
     
-    print(limit)
-    posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
+    
+    # posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
+    
+    posts = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
     return posts
 
 #age bekhaym postaye khode useri ke sign krde ro fght neshone khodesh bede az ghesmate bala ino taghir midim:
@@ -39,11 +43,11 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), curren
 
 
 
-@router.get("/{id}", response_model=schemas.Post)
+@router.get("/{id}", response_model=schemas.PostOut)
 def get_post(id: int, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):  #hatman byd id: int bezarim ke id o be int tabdil kone ke def find_post doros kar kone
 
 
-    post = db.query(models.Post).filter(models.Post.id == id).first() #age .all() bzrim hata age peyda kone bzm donbalesh migarde ama id fght 1 done drim pas first mizrim ke be avalin id moshabeh resid dg nagarde
+    post = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(models.Post.id == id).first() #age .all() bzrim hata age peyda kone bzm donbalesh migarde ama id fght 1 done drim pas first mizrim ke be avalin id moshabeh resid dg nagarde
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
     
