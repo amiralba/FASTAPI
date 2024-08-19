@@ -1,13 +1,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+import sentry_sdk
 from . import models
 from .database import engine
 from .routers import user, post, auth, vote
 
 
-#payini dg kar nmikone chon alembic kar mikone be jash
-# models.Base.metadata.create_all(bind=engine)
+sentry_sdk.init(
+    dsn="https://fe4c94de246c6f5d64382becdd482d86@o4507786394009600.ingest.de.sentry.io/4507786397352016",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
 
 origins= ["*"]
 
@@ -27,4 +35,5 @@ app.include_router(vote.router)
 
 @app.get("/")
 def root():
-    return {"message": "Hello World"}
+    return {"message": "MEOW"}
+
