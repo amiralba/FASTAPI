@@ -10,6 +10,12 @@ This FastAPI application is a backend service that includes:
 	•	Post Management: CRUD operations for posts.
 	•	Voting System: Users can vote on posts and view vote counts.
 	•	JWT Authentication: Secure endpoints with JSON Web Tokens.
+ Access the App
+
+You can access the live application through the following links:
+
+- [FastAPI Deployment](https://fastapi-alba-0b57a979824e.herokuapp.com/)
+- [Personal Domain](https://www.amiralba.xyz/)
 
 Skills & Technologies
 
